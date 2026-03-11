@@ -1,0 +1,67 @@
+import matplotlib.pyplot as plt
+import collections
+
+
+def calculate_ic(text):
+
+    n = len(text)
+    if n <= 1: return 0
+
+    frequencies = collections.Counter(text)
+    # Формула: Sum(Nt * (Nt - 1)) / (n * (n - 1))
+    numerator = sum(count * (count - 1) for count in frequencies.values())
+    denominator = n * (n - 1)
+    return numerator / denominator
+
+
+def vigenere_encrypt(plaintext, key, alphabet):
+
+    result = ""
+    m = len(alphabet)
+    key_indices = [alphabet.index(k) for k in key]
+    for i, char in enumerate(plaintext):
+        x_i = alphabet.index(char)
+        k_i = key_indices[i % len(key)]
+        result += alphabet[(x_i + k_i) % m]
+    return result
+
+
+
+alphabet = "абвгдежзийклмнопрстуфхцчшщъыьэюя"  # m = 32 [cite: 54]
+
+raw_text = "криптографияэтоцелаянаукакотораяпозволяетзащититьданныеизучаяеевыпойметекакработаютсовременныеалгоритмыбезопасности"
+clean_text = "".join([c.lower() for c in raw_text.replace("ё", "е") if c.lower() in alphabet])
+
+
+r_values = [0, 2, 3, 4, 5, 6, 10, 15, 20]
+keys = {
+    2: "да", 3: "кот", 4: "небо", 5: "экран", 6: "пароль",
+    10: "криптограф", 15: "информатикарок", 20: "программированиеавто"
+}
+
+results = []
+
+results.append(calculate_ic(clean_text))
+
+
+for r in r_values[1:]:
+    cipher = vigenere_encrypt(clean_text, keys[r], alphabet)
+    results.append(calculate_ic(cipher))
+
+
+print(f"{'Довжина r':<12} | {'Індекс І':<10}")
+print("-" * 25)
+for r, ic in zip(r_values, results):
+    label = "ВТ" if r == 0 else str(r)
+    print(f"{label:<12} | {ic:.5f}")
+
+
+plt.figure(figsize=(10, 6))
+plt.plot([str(r) if r != 0 else "ВТ" for r in r_values], results, marker='o', linestyle='-', color='b')
+plt.axhline(y=1 / 32, color='r', linestyle='--', label='Теоретичне I0 (1/32)')
+plt.title("Залежність індексу відповідності від довжини ключа r")
+plt.xlabel("Довжина ключа (r)")
+plt.ylabel("Індекс відповідності (I)")
+plt.grid(True)
+plt.legend()
+plt.show()
