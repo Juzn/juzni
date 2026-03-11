@@ -1,0 +1,93 @@
+import collections
+
+
+class VigenereCracker:
+    def __init__(self):
+        self.alphabet = "абвгдежзийклмнопрстуфхцчшщъыьэюя"
+        self.m = len(self.alphabet)
+        self.russian_probs = {
+            'а': 0.0801, 'б': 0.0159, 'в': 0.0454, 'г': 0.0170, 'д': 0.0298, 'е': 0.0845,
+            'ж': 0.0094, 'з': 0.0165, 'и': 0.0735, 'й': 0.0121, 'к': 0.0349, 'л': 0.0440,
+            'м': 0.0321, 'н': 0.0670, 'о': 0.1097, 'п': 0.0281, 'р': 0.0473, 'с': 0.0547,
+            'т': 0.0626, 'у': 0.0262, 'ф': 0.0026, 'х': 0.0097, 'ц': 0.0048, 'ч': 0.0144,
+            'ш': 0.0073, 'щ': 0.0036, 'ъ': 0.0004, 'ы': 0.0190, 'ь': 0.0174, 'э': 0.0032,
+            'ю': 0.0064, 'я': 0.0201
+        }
+
+    def get_ic(self, text):
+        n = len(text)
+        if n <= 1: return 0
+        freqs = collections.Counter(text)
+        return sum(v * (v - 1) for v in freqs.values()) / (n * (n - 1))
+
+    def find_period(self, ciphertext, max_r=40):
+
+        results = {}
+        for r in range(1, max_r + 1):
+            blocks = [ciphertext[i::r] for i in range(r)]
+            avg_ic = sum(self.get_ic(b) for b in blocks) / r
+            results[r] = avg_ic
+
+        return max(results, key=results.get), results
+
+    def solve_key_with_mg(self, ciphertext, r):
+
+        key = ""
+        for i in range(r):
+            block = ciphertext[i::r]
+            n_block = len(block)
+            counts = collections.Counter(block)
+
+            m_values = []
+            for g in range(self.m):
+
+                mg = sum(self.russian_probs[self.alphabet[t]] * counts[self.alphabet[(t + g) % self.m]]
+                         for t in range(self.m))
+                m_values.append(mg)
+
+            best_g = m_values.index(max(m_values))
+            key += self.alphabet[best_g]
+        return key
+
+    def decrypt(self, ciphertext, key):
+
+        res = ""
+        for i, char in enumerate(ciphertext):
+            idx_y = self.alphabet.index(char)
+            idx_k = self.alphabet.index(key[i % len(key)])
+            res += self.alphabet[(idx_y - idx_k) % self.m]
+        return res
+
+    def process_files(self, input_file, output_file):
+        with open(input_file, 'r', encoding='utf-8') as f:
+            raw_cipher = f.read().lower().replace("ё", "е")
+            ciphertext = "".join([c for c in raw_cipher if c in self.alphabet])
+
+        r, all_ics = self.find_period(ciphertext)
+
+        key = self.solve_key_with_mg(ciphertext, r)
+
+        plaintext = self.decrypt(ciphertext, key)
+
+        with open(output_file, 'w', encoding='utf-8') as f:
+            f.write("=== ЗВІТ КРИПТОАНАЛІЗУ (ШИФР ВІЖЕНЕРА) ===\n")
+            f.write(f"Визначена довжина ключа (r): {r}\n")
+            f.write(f"Знайдений ключ: {key}\n")
+            f.write(f"Теоретичний IC для мови: ~0.0553\n")
+            f.write(f"Отриманий середній IC для знайденого r: {all_ics[r]:.5f}\n")
+            f.write("-" * 40 + "\n")
+            f.write("ТАБЛИЦЯ ІНДЕКСІВ (перші 10 кандидатів):\n")
+            for i in range(1, 11):
+                f.write(f"r={i}: {all_ics[i]:.5f}\n")
+            f.write("-" * 40 + "\n\n")
+            f.write("РОЗШИФРОВАНИЙ ТЕКСТ:\n")
+            f.write(plaintext)
+
+
+cracker = VigenereCracker()
+
+try:
+    cracker.process_files('input.txt', 'result_report.txt')
+    print("Аналіз завершено. Результати та звіт збережено у 'result_report.txt'")
+except FileNotFoundError:
+    print("Помилка: Файл 'input.txt' не знайдено.")
